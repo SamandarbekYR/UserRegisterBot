@@ -1,14 +1,20 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
+using UserRegisterBot.Entity;
+using UserRegisterBot.Repositories;
 
 namespace UserRegisterBot
 {
     class Program
     {
-        static Dictionary<long, List<string>> values = new Dictionary<long, List<string>>();    
+        static Dictionary<long, List<string>> values = new Dictionary<long, List<string>>();
+        static Users users = new Users();
+        static UserRepository repository = new UserRepository();
+
         static void Main(string[] args)
         {
-            string YOUR_ACCESS_TOKEN_HERE = "6780239837:AAF2Dhaps0rUx9mEd81GD8PsslXSboeHTng";
+            string YOUR_ACCESS_TOKEN_HERE = "6598331215:AAG_69keyDD5aQf7qna1glDXzsY6W-CP4aY";
             var client = new TelegramBotClient(YOUR_ACCESS_TOKEN_HERE);
             client.StartReceiving(Update, Error);
             Console.WriteLine("running ... ");
@@ -21,48 +27,101 @@ namespace UserRegisterBot
             if (message!.Text == "/start")
             {
                 values[message.Chat.Id] = new List<string>();
-                await botClient.SendTextMessageAsync(message.Chat.Id, "UserName kiriting: Misol uchun: UserName: Samandarbek ");
+                await botClient.SendTextMessageAsync(message.Chat.Id, "Enter Username:\n" +
+                                    "Example => Username: Samandarbek ");
             }
 
             else
             {
                 if (!values.ContainsKey(message.Chat.Id))
                 {
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "Iltimos, /start buyrug'ini bering.");
-                    return;
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Please issue the /start command.");
                 }
-                else if (message!.Text!.StartsWith("UserName:"))
+                else if (message!.Text!.StartsWith("Username: "))
                 {
-                    values[message.Chat.Id].Add(message.Text);
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "UserName saqlandi!");
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "FirstName kiriting! \n" +
-                                                        "Misol uchun => FirstName: Yigitaliyev");
-                }
-                else if (message!.Text!.StartsWith("FirstName:"))
-                {
-                    values[message.Chat.Id].Add(message.Text);
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "FirstName saqlandi!");
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "LastName kiriting!\n" +
-                                                        "Misol uchun => LastName: Yigitaliyev");
-                }
-                else if (message!.Text!.StartsWith("LastName:"))
-                {
-                    values[message.Chat.Id].Add(message.Text);
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "LastName saqlandi!");
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "CompanyName kiriting!\n" +
-                                                        "Misol uchun => CompanyName: Green Sale");
-                }
-                else if (message!.Text!.StartsWith("CompanyName:"))
-                {
-                    values[message.Chat.Id].Add(message.Text);
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "Malumotlaringiz basaga qo'shildi!");
 
-                    string joinedValues = string.Join("\n", values[message.Chat.Id]);
-                    await botClient.SendTextMessageAsync(message.Chat.Id, joinedValues);
+                    users.UserName = string.Join(" ", message.Text.Split(" ").Skip(1));
+
+                    var result = await repository.GetByUserNameAsync(users.UserName);
+
+                    if (result is not null)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id,
+                                                                $"Username: {result.UserName}\n" +
+                                                                $"Firstname: {result.FirstName}\n" +
+                                                                $"Lastname: {result.LastName}\n" +
+                                                                $"Companyname: {result.CompanyName}");
+
+                        message.Text = "";
+                        await botClient.SendTextMessageAsync(message.Chat.Id, "This is already registered with UserName.\n" +
+                                                                "Please issue the /start command.");
+                        return;
+                    }
+
+                    values[message.Chat.Id].Add(message.Text);
+
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Username saved!");
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Enter Firstname \n" +
+                                                            "Example => Firstname: Samandarbek");
+                    users.ChatId = message.Chat.Id;
                 }
+
+                else if (message!.Text!.StartsWith("Firstname: "))
+                {
+                    users.FirstName = string.Join(" ", message.Text.Split(" ").Skip(1));
+                    values[message.Chat.Id].Add(message.Text);
+
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Firstname saved!");
+
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Enter Lastname!\n" +
+                                                        "Example => Lastname: Yigitaliyev");
+                }
+
+                else if (message!.Text!.StartsWith("Lastname: "))
+                {
+                    users.LastName = string.Join(" ", message.Text.Split(" ").Skip(1));
+                    values[message.Chat.Id].Add(message.Text);
+
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Lastname saved!");
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "Enter Companyname!\n" +
+                                                           "Example => Companyname: Green Sale");
+                }
+
+                else if (message!.Text!.StartsWith("Companyname: "))
+                {
+                    users.CompanyName = string.Join(" ", message.Text.Split(" ").Skip(1));
+                    values[message.Chat.Id].Add(message.Text);
+
+                    UserRepository repository = new UserRepository();
+                    var result = repository.CreateAsync(users);
+
+                    if (result != null)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat.Id, "Your data has been added to the database!");
+
+                        string joinedValues = string.Join("\n", values[message.Chat.Id]);
+                        await botClient.SendTextMessageAsync(message.Chat.Id, joinedValues);
+                    }
+
+
+                    InlineKeyboardMarkup inlineKeyboard = new(new[]
+                    {
+                    InlineKeyboardButton.WithUrl(
+                                text: "Link to the GitHub",
+                                url: "https://github.com/SamandarbekYR/UserRegisterBot")
+                    });
+
+                    Message sentMessage = await botClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: "Click to view bot's code",
+                        replyMarkup: inlineKeyboard
+                        );
+                }
+
                 else
                 {
-                    await botClient.SendTextMessageAsync(message.Chat.Id, "Iltimos, /start buyrug'ini bering.");
+                    await botClient.SendTextMessageAsync(message.Chat.Id, "You made an error while filling out the information.\n" +
+                                                                                "Refill according to the sample, Or issue the /start command.");
                 }
             }
         }

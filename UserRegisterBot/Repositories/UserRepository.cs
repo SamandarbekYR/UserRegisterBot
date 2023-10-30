@@ -39,7 +39,7 @@ namespace UserRegisterBot.Repositories
                 string query = "INSERT INTO public.users(chat_id, user_name, first_name, last_name, company_name ) " +
                                 " VALUES (@ChatId, @UserName, @FirstName, @LastName, @CompanyName );"; 
                               
-                var result = await _connection.ExecuteScalarAsync<int>(query, entity);
+                int result = await _connection.ExecuteScalarAsync<int>(query, entity);
 
                 return result;
             }
@@ -55,16 +55,17 @@ namespace UserRegisterBot.Repositories
             }
         }
 
-        public async Task<Users> GetByIdAsync(long ChatId)
+        public async Task<Users> GetByUserNameAsync(string UserName)
         {
             try
             {
                 await _connection.OpenAsync();
 
-                string query = "SELECT id, user_name, first_name, last_name, company_name" +
-                                    $"WHERE chat_id= {ChatId};";
+                string query = "SELECT id, chat_id, user_name, first_name, last_name, company_name from users " +
+                                        $"WHERE user_name='{UserName}'" +
+                                            " order by id;";
 
-                var result = await _connection.QuerySingleOrDefaultAsync<Users>(query, new { chat_id = ChatId });
+                var result = await _connection.QuerySingleOrDefaultAsync<Users>(query);
 
                 return result!;
             }
